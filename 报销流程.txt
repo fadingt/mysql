@@ -1,0 +1,39 @@
+SELECT
+reim.approvestep,
+bus.suserid,
+reim.reimbursementno,
+processinstanceid,
+processinstancename,
+assignmentname,
+businessid,
+opinion,
+getusername(bus.userid),
+getusername(reim.userid)
+FROM (SELECT *,GROUP_CONCAT(userid) suserid 
+			FROM bpm_workflowbusiness 
+			WHERE processdefinitionid = 'ReimbursementForApproval_vv_1' AND assignmentname != 'config_2_¶þ¼¶ÉóÅú' AND (businessstatus = 0 OR businessstatus = 1)
+			GROUP BY processinstanceid
+			) bus
+JOIN (SELECT reimbursementno, id, userid, approvestep
+			FROM t_budget_reimbursement
+			WHERE approvalstatus = 3) reim on CONCAT('{"id":"', reim.id, '"}') = bus.businessid
+WHERE bus.userid = reim.userid
+ORDER BY reim.id;
+
+-- SELECT *FROM t_budget_reimbursement WHERE id = 1284;
+SELECT *, getusername(userid) FROM bpm_workflowbusiness WHERE businessid = '{"id":"528"}' and processdefinitionid = 'ReimbursementForApproval_vv_1';
+
+SELECT processinstanceid, COUNT(processinstanceid)
+FROM bpm_workflowbusiness 
+WHERE processdefinitionid = 'ReimbursementForApproval_vv_1'
+GROUP BY processinstanceid
+
+
+SELECT *
+FROM  bpm_workflowbusiness AS t
+WHERE processdefinitionid = 'ReimbursementForApproval_vv_1' AND businessstatus = 1 AND
+			(SELECT COUNT(processinstanceid) 
+			FROM  bpm_workflowbusiness AS t1 
+			WHERE processdefinitionid = 'ReimbursementForApproval_vv_1' AND businessstatus = 1 AND t.processinstanceid = t1.processinstanceid
+			) > 1
+

@@ -1,0 +1,88 @@
+SELECT
+		x.username username,-- 员工姓名
+		b.companyname,--  财务主体
+		translatedict('IDFS000234',x.budgetcategory) budgetcategoryname,-- 预算分类
+		translatedict('IDFS000159',x.budgettype) budgettypename,-- 预算类型
+		x.budgetname,-- 预算名称
+		x.deptname,-- 费用所属部门
+		getusername(b.chargeperson) principalname, -- 预算负责人
+    IFNULL(loan2.selfloan,0) selfloan, -- 借款总额（个人）
+		IFNULL(repay2.selfrepaymentfigure,0) selfrepaymentfigure,-- 还款总额（个人）
+		IFNULL(selfdebt.selfqk,0) selfqk, -- 欠款总额（个人）
+		IFNULL(repay2f.selfrepaymentfiguref,0) selfrepaymentfiguref,-- 在途还款（个人）
+		IFNULL(repay2f4.loanimpulse,0) loanimpulse,-- 在途冲账(个人)
+		IFNULL(loan1.depositloan,0) depositloan,-- 借款总额（押金）
+		IFNULL(repay1.depositrepaymentfigure,0) depositrepaymentfigure,-- 还款总额（押金)
+		IFNULL(depositdebt.depositqk,0) depositqk,-- 欠款总额（押金）
+		IFNULL(repay1f.depositrepaymentfiguref,0) depositrepaymentfiguref,-- 在途还款（押金)
+		IFNULL(repay1f4.depositimpulse,0) depositimpulse,-- 在途冲账(押金)
+		'end'
+FROM (SELECT userid, deptid, budgetid, budgettype, budgetcategory, budgetname, getusername(userid) username, companyid,
+			getunitname(deptid) deptname,
+			getunitname(companyid) companyname
+			FROM t_budget_loaninfo 
+			WHERE loanstatus = 3 AND (loantype = 1 OR (loantype = 2 AND paymenttype != 2))
+			GROUP BY budgetid, userid) x
+
+LEFT JOIN (SELECT loanid, userid, loantype, loantarget, budgetid, budgettype, deptid, SUM(loanfigure) selfloan
+					FROM t_budget_loaninfo
+					WHERE loantype = 2 -- '借款类型：1-押金借款，2-个人借款，3-快捷借款'
+								AND paymenttype != 2 -- '支付形式：1-对私，2-对公，3-现金'
+								AND paymentstatus = 1 -- '支付状态(0-未支付，1-已支付，2-作废)'
+					GROUP BY budgetid, userid) loan2
+	ON loan2.budgetid = x.budgetid AND loan2.userid = x.userid
+LEFT JOIN (SELECT loanid, userid, loantarget, budgetid, budgettype, deptid, SUM(loanfigure) depositloan
+					FROM t_budget_loaninfo
+					WHERE loantype = 1 -- '借款类型：1-押金借款，2-个人借款，3-快捷借款'
+								AND paymentstatus = 1 -- '支付状态(0-未支付，1-已支付，2-作废)'
+					GROUP BY budgetid, userid) loan1
+	ON loan1.budgetid = x.budgetid AND loan1.userid = x.userid
+LEFT JOIN (SELECT budgetid, repaymentway, repaymenttype, SUM(repaymentfigure) selfrepaymentfigure, repaymentuser
+					FROM t_budget_repaymentinfo
+					WHERE repaymenttype = 2 AND confirmflag = 2 
+					-- '还款类型(对应借款类型)：1-押金，2-个人','确认状态(0-草稿，1-未确认，2-已确认),'还款方式：1-现金，2-转账，3-工资，4-冲账(报销冲账)'
+					GROUP BY budgetid, repaymentuser) repay2
+	ON repay2.budgetid = x.budgetid AND repay2.repaymentuser = x.userid
+LEFT JOIN (SELECT budgetid, repaymentway, repaymenttype, SUM(repaymentfigure) depositrepaymentfigure, repaymentuser
+					FROM t_budget_repaymentinfo
+					WHERE repaymenttype = 1 AND confirmflag = 2
+					GROUP BY budgetid,repaymentuser) repay1
+	ON repay1.budgetid = x.budgetid AND repay1.repaymentuser = x.userid
+LEFT JOIN (SELECT budgetid, repaymentway, repaymenttype, SUM(repaymentfigure) selfrepaymentfiguref, repaymentuser
+					FROM t_budget_repaymentinfo
+					WHERE repaymenttype = 2 AND confirmflag = 1 AND repaymentway != 4
+					GROUP BY budgetid, repaymentuser) repay2f
+	ON repay2f.budgetid = x.budgetid AND repay2f.repaymentuser = x.userid
+LEFT JOIN (SELECT budgetid, repaymentway, repaymenttype, SUM(repaymentfigure) depositrepaymentfiguref, repaymentuser
+					FROM t_budget_repaymentinfo
+					WHERE repaymenttype = 1 AND confirmflag = 1 AND repaymentway != 4
+					GROUP BY budgetid,repaymentuser) repay1f
+	ON repay1f.budgetid = x.budgetid AND repay1f.repaymentuser = x.userid
+LEFT JOIN (SELECT budgetid, repaymentway, repaymenttype, SUM(repaymentfigure) loanimpulse, repaymentuser
+					FROM t_budget_repaymentinfo
+					WHERE repaymenttype = 2 AND confirmflag =(0 OR 1) AND repaymentway = 4
+					GROUP BY budgetid, repaymentuser) repay2f4
+	ON repay2f4.budgetid = x.budgetid AND repay2f4.repaymentuser = x.userid
+LEFT JOIN (SELECT budgetid, repaymentway, repaymenttype, SUM(repaymentfigure) depositimpulse, repaymentuser
+					FROM t_budget_repaymentinfo
+					WHERE repaymenttype = 1 AND confirmflag =(0 OR 1) AND repaymentway = 4
+					GROUP BY budgetid,repaymentuser) repay1f4
+	ON repay1f4.budgetid = x.budgetid AND repay1f4.repaymentuser = x.userid
+LEFT JOIN (SELECT SUM(debtfigure) selfqk, repaymentuserid, loantype
+					FROM t_budget_hisrepaymentinfo
+					WHERE loantype = 2
+					GROUP BY repaymentuserid) selfdebt
+	ON selfdebt.repaymentuserid = x.userid
+LEFT JOIN (SELECT SUM(debtfigure) depositqk, repaymentuserid, loantype
+					FROM t_budget_hisrepaymentinfo
+					WHERE loantype = 1
+					GROUP BY repaymentuserid) depositdebt
+	ON depositdebt.repaymentuserid = x.userid
+JOIN t_budget_deptannualbudget b
+	ON b.budgetid = x.budgetid
+LEFT JOIN t_budget_repaymentinfo repay
+ON repay.budgetid = x.budgetid
+WHERE 1=1
+-- AND x.deptid IN (:roledatascope)
+{username} {deptname}{year}{companyname}
+GROUP BY x.userid, x.budgetid

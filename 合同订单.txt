@@ -1,0 +1,25 @@
+select distinct t.contractid,t.contractno,t.contractname,t.firstparty,t.secondparty,
+			(select b.custname from t_sale_custbasicdata b where b.custid = t.firstparty ) AS firstpartyname,
+			(select dictname from t_sys_dictvalue where dictitem = 'IDFS000290'AND dictvalue = t.secondparty) AS secondpartyname,
+			t.company,t.sowno,t.strategicagreementid,t.begintime,t.endtime,t.type,t.contractprice,t.moneytype,
+			t.currency,t.localcurrency,t.billtype,t.issuemethod,t.backdate,t.pastamount,t.paymented,t.accounttype,t.collectiontype,
+			t.changeexplain,t.remark,t.effectstatus,t.registerid,
+			(select username from t_sys_mnguserinfo where userid = t.registerid) AS registername,
+			t.operatetype,t.createtime,t.lastmodtime,t.extend1,t.extend2,t.extend3,t.kind,t.exchangerate,t.laststate, 
+			(select count(*) from t_contract_order tco WHERE t.contractid = tco.protocolorcontractid) as ordercount ,
+	        (select SUM(tco.poprice) from t_contract_order tco WHERE t.contractid = tco.protocolorcontractid) as ordersum, 
+	        CASE when (select count(*) from t_contract_order tco WHERE t.contractid = tco.protocolorcontractid)=0 THEN 0 ELSE 1 end  as orderstats ,
+	         case when r.extend1='R54' THEN (SELECT t1.username 
+                 FROM t_sys_mnguserrole x, t_sys_mnguserinfo t1   
+                 WHERE x.user_id = t1.userid 
+                 AND x.role_id IN ( SELECT q.paramvalue FROM t_sys_sysparam q INNER JOIN t_sys_mnguserrole p ON p.role_id = q.paramvalue WHERE q.paramkey = 'ordertoprojectrole') ) 
+                  when r.extend1 is null then (select username from t_sys_mnguserinfo where userid = t.extend4)  
+             else  (select username from t_sys_mnguserinfo where userid = r.extend1) end as extend4 
+			from t_contract_main t 
+			 left join (select protocolorcontractid,min(extend1)as extend1 from t_contract_order GROUP BY protocolorcontractid)r
+			 on r.protocolorcontractid = t.contractid 
+			 where 1 = 1 and t.kind = 2 and t.type in ('1','3')
+
+
+
+-- and (select count(*) from t_contract_order tco WHERE t.contractid = tco.protocolorcontractid)

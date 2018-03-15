@@ -1,0 +1,30 @@
+SELECT *
+FROM
+(		select 
+					-- t1.id,
+					-- t.presaleid,
+					t.presaleno,-- 售前ID
+					t.presalename,-- 售前名称
+					t.year,
+					t.businessno ,-- 
+					t.businessname,
+					t.projbusinessid,
+					t.businessid,
+					t.projbusinessname,
+					(case workstatus when '1' then '未生效' when '2' then '已生效' else '变更中' end ) AS 'sxzt',
+					t.presalescityname,
+					t.projbusinessno,
+					t.periodstart,
+					t.periodend ,
+					t.predictworkneed,
+					t1.workhour,
+					t.predictexpense,
+					t1.fee,
+					t1.userid,
+					(t.predictworkneed * cost.defaultcost) precost
+		from t_sale_presales t
+		left join t_sale_presaleresource t1 on t.presaleid = t1.presaleid
+		LEFT JOIN (SELECT userid, staf_leve FROM t_sys_mnguserinfo) us ON t1.userid = us.userid
+		LEFT JOIN (SELECT levelcostid, postlevel, defaultcost FROM t_public_levelcost WHERE costtype = 2) cost ON us.staf_leve = cost.postlevel
+-- GROUP BY us.userid
+)x

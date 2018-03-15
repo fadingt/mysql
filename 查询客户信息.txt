@@ -1,0 +1,28 @@
+SELECT
+		custname,
+		custno,
+		custnameabb,
+		custtype,
+		custsector,
+		custcountry,
+		custcity,
+		custaddress,
+		custregion,
+		custpostcode,
+		custscale,
+		contact,
+		telephone,
+		taxpayernumber,
+		bankaccount,
+		accountnumber,
+		infoex,
+		tecpersonid,
+		parentid,
+		createtime,
+		lastmodtime
+FROM t_sale_custbasicdata
+WHERE 1=1
+{custname}
+{custno}
+{custnameabb}
+{custsector}
