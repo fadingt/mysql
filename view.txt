@@ -1,0 +1,29 @@
+	select	
+			p.projectid,
+			projectno,
+			projectname,
+			custname,
+			businesstype,-- 业务类型
+			deptid,-- 所属部门
+			projstatus, -- 项目状态(1-执行中，2-变更中，3-暂停，4-终止)
+			contractstatus, -- 签约状态
+			predictstartdate, -- '预计开始日期',
+			predictenddate, -- '预计结束日期',
+			maintenancedate, -- '维护结束日期'
+			budgetcontractamout, --  预算合同总额(各业务类型预算合同之和),
+			getMonthNum(predictstartdate, predictenddate) as prjworktime,-- 项目周期
+			getMonthNum(predictenddate, maintenancedate) as prj, -- 维护周期
+			#sum(jan_cgcb+feb_cgcb+mar_cgcb+apr_cgcb+may_cgcb+jun_cgcb+jul_cgcb+aug_cgcb+sep_cgcb+oct_cgcb+nov_cgcb+dec_cgcb) as T_purchase_cost,-- 累计采购成本
+			getManualPurchase(p.projectid) as T_purchase_cost,-- 累计采购成本
+			#sum(realcost+realfeea+realfeeb+realfee) as T_cost,-- 累计成本(人力+费用+内外采）
+			IFNULL((SELECT  cumulativecost from t_income_prjmonthincome_fi WHERE projectid = p.projectid and left(yearmonth,4) <= c_year ORDER BY yearmonth DESC LIMIT 1),0) T_cost,-- 累计成本
+			IFNULL(t_income,0) t_income,-- 累计确认收入
+			#sum(jan_sjsr+feb_sjsr+mar_sjsr+apr_sjsr+may_sjsr+jun_sjsr+jul_sjsr+aug_sjsr+sep_sjsr+oct_sjsr+nov_sjsr+dec_sjsr) as T_income,-- 累计确认收入
+			#sum(yjcb_cg) as cgfy,  -- 内外采购费用
+			getPrjPredictPurchase(p.projectid) cgfy, -- 预计采购费用
+			predictincome, -- 项目预算收入
+			predictcost-- 项目预算成本
+	from t_report_projectinfoinout t
+	left join (SELECT projectid, getcustname(finalcustomer), finalcustomer  from t_project_projectinfo) p on p.projectid = t.projectid
+	LEFT JOIN (SELECT projectid, company, SUM(curmonincome) t_income, custname, contractstatus from t_income_prjmonthincome_fi WHERE left(yearmonth,4) <= c_year GROUP BY projectid) fi on fi.projectid = t.projectid
+	GROUP BY p.projectid;
