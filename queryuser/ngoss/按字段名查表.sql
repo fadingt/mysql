@@ -7,6 +7,6 @@ where TABLE_SCHEMA='ngoss';
 
 
 -- 按字段名查表
-SELECT * FROM information_schema.columns 
-WHERE column_name like 'incometype' 
+SELECT * FROM information_schema.columns
+WHERE COLUMN_COMMENT like '%签约公司%'
 AND TABLE_SCHEMA='ngoss';
