@@ -1,0 +1,91 @@
+SELECT
+	*
+FROM
+	(
+		SELECT
+			voucher.id,
+			voucher.billno,
+			SUBSTR(voucher.acctdate FROM 1 FOR 4) AS year,
+			SUBSTR(voucher.acctdate FROM 5 FOR 2) AS month,
+      date_format(str_to_date(voucher.acctcreatdate,'%Y%m%d %H:%i:%s'),'%Y-%m-%d') as acctcreatdate,
+      financialbodyname,
+			'记' AS pzleibie,
+			course.course,
+			CONCAT(
+				voucher.userdepname,
+				getusername (voucher.userid),
+				c.level2text
+			) AS zhaiyao,
+			'人民币' AS bizhong,
+			c.amt,
+			(
+				SELECT
+					a.brno
+				FROM
+					t_sys_mngunitinfo a
+				WHERE
+					a.unitid = voucher.depid
+			) AS deptname,
+			c.prono,
+			c.extend1,
+			DATE_FORMAT(now(),'%Y-%m-%d') createdate
+		FROM
+			t_budget_paymentbill voucher
+		JOIN t_budget_paymentbillcourse course
+		ON voucher.id = course.billid
+		JOIN (
+			SELECT
+				t.paymentid,
+				b.level2value,
+				b.level2text,
+				t.extend1,
+				b.amt,
+				t.extend1 as prono
+			FROM
+				(SELECT  a.id,a.paymentid,a.budgetNature,a.budgettype,a.extend1 FROM t_budget_reimbursement a) t
+			JOIN (
+				SELECT
+					a.reimbursementid,
+					a.Course,
+					sum(amt) AS amt,
+					aa.level2value,
+					aa.level2text
+				FROM
+					-- t_budget_reimbursementDetail a 处理进项税部分
+				(SELECT a.id,a.reimbursementid,CASE WHEN a.invoicetype = '3' THEN a.bta ELSE a.amt END amt,a.course FROM t_budget_reimbursementdetail a
+					 UNION ALL
+					 SELECT a.id,a.reimbursementid,a.vat amt,a.vatcourse course FROM t_budget_reimbursementdetail a WHERE a.invoicetype = '3'
+				)a
+				JOIN t_budget_accountingsubject aa ON a.course = aa.subjectid
+				GROUP BY
+					a.reimbursementid,
+					a.Course,
+					aa.level2value,
+					aa.level2text
+			) b ON t.id = b.reimbursementid
+		) c ON voucher.id = c.paymentid
+		AND course.course = c.level2value
+		WHERE
+			voucher.acctstatus = 1
+			and course.course <> '1801'
+			and voucher.acctdate = DATE_FORMAT(DATE_sub(now(), INTERVAL 1 month),'%Y%m')
+		UNION ALL
+			SELECT m.id,
+			m.billno,
+			SUBSTR(m.acctdate FROM 1 FOR 4) AS year,
+			SUBSTR(m.acctdate FROM 5 FOR 2) AS month,
+      date_format(str_to_date(m.createdate,'%Y%m%d %H:%i:%s'),'%Y-%m-%d') as acctcreatdate,
+      getunitname(m.financialbody) as financialbodyname,
+			'记' AS pzleibie,
+			c.level2value as course,
+			m.extend2 AS zhaiyao,
+			'人民币' AS bizhong,
+			m.payamount,
+			m.depbrno AS deptname,
+			'' as prono,
+			m.prono as extend1,
+			DATE_FORMAT(now(),'%Y-%m-%d') createdate from t_budget_paymentbill_manual m
+			LEFT JOIN t_budget_accountingsubject c on m.course=c.subjectid
+			WHERE
+			m.acctdate = DATE_FORMAT(DATE_sub(now(), INTERVAL 1 month),'%Y%m')
+	) t;
