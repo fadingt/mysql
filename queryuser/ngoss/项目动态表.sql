@@ -1,9 +1,11 @@
+set @year := 2018;
+-- @year @year
 SELECT 
 	getProjAccountPeriod(a.projectid)accountPeriod,
 	ifnull((select tt.receamt 
 					from  (select projectid,sum(a.p_yreceamt) as receamt  
 								 from view_project_srece_tian a 
-								 where substr(msrecedate,1,4) =  2015
+								 where substr(msrecedate,1,4) =  @year
 								 GROUP BY a.projectid) tt 
 					where tt.projectid = a.projectid) ,0)as dnhk,                            
 	ifnull(wnhk,0) as wnhk,a.projectid,a.projectno,a.projectname,a.projecttype,a.sale, a.salearea,
@@ -25,12 +27,10 @@ SELECT
   a.chazhi2, 
 	IFNULL(a.contractprice,0)contractprice,IFNULL(yearprojectfigure,0)yearprojectfigure,-- 当年立项金额
 	IFNULL(yearcontractfigure,0)yearcontractfigure,-- 当年合同金额
-	prj_f_sreceamt,
+	projectsumworkload, -- 报工人/天
+	-- prj_f_sreceamt,
 	isprojstatus, -- 是否结项
-	( case when (SELECT COUNT(infoex) from t_public_attachment where tradecode = 't_project_projectinfo_addition' and tradeid=a.projectid and infoex = '中标通知书' )>0 then 1 else 0 end ) zbtzs,
-	( case when (SELECT COUNT(infoex) from t_public_attachment where tradecode = 't_project_projectinfo_addition' and tradeid=a.projectid and infoex = '入场通知书' )>0 then 1 else 0 end ) rctzs,
-	( case when (SELECT COUNT(infoex) from t_public_attachment where tradecode = 't_project_projectinfo_addition' and tradeid=a.projectid and infoex = '甲方邮件'   )>0 then 1 else 0 end ) jfyj,
-	( case when (SELECT COUNT(infoex) from t_public_attachment where tradecode = 't_project_projectinfo_addition' and tradeid=a.projectid)>0 then 1 else 0 end ) srzm
+	b.zbtzs, b.rctzs, b.jfyj, case when b.tradeid is null then 0 else 1 end srzm
 FROM
 (
 	SELECT 
@@ -95,8 +95,7 @@ FROM
 
 		case when p.projectid in (select projectid from t_contract_projectrelation ) then null
 		else TO_DAYS(DATE_FORMAT(s.contracttime,'%Y-%m-%d'))-TO_DAYS(date_format(now(),'%Y-%m-%d')) end chazhi,-- 签约预警（距当前日期） 
-		case when p.projectid in (select projectid from t_contract_projectrelation ) then null
-		else TO_DAYS(DATE_FORMAT(p.predictstartdate,'%Y-%m-%d'))-TO_DAYS(date_format(current_timestamp(),'%Y-%m-%d')) end chazhi2,-- 签约预警（距项目开始日期）
+		TO_DAYS(DATE_FORMAT(p.predictstartdate,'%Y-%m-%d'))-TO_DAYS(date_format(current_timestamp(),'%Y-%m-%d'))  chazhi2,-- 签约预警（距项目开始日期）
 
 		case 
                 when p.projstatus= '9' then '项目已取消'
@@ -119,23 +118,44 @@ FROM
 		then (SELECT sum(m.contractprice) FROM t_contract_projectrelation c,t_contract_main m WHERE c.contractid=m.contractid and c.projectid=p.projectid and SUBSTR(begintime FROM 1 FOR 4)=DATE_FORMAT(current_timestamp(),'%Y' ) and m.effectstatus not in (7,8))
 		else 0 
 		end yearcontractfigure,-- 当年合同金额 */
+
     case 
 		when p.projecttype in (4,7,2,6) 
-		then  (SELECT sum(yreceamt) FROM t_project_stage_ys_tian WHERE projectid=p.projectid and SUBSTR(yrecedate FROM 1 FOR 4)= 2015)
+		then  
+		(
+			SELECT
+				sum(f_yreceamt)
+			FROM
+			(
+				SELECT contractid, f_yreceamt,  projectid
+				FROM t_contract_stage_ysf_tian
+			) t1
+			LEFT JOIN 
+			(
+				SELECT
+					contractid,
+					LEFT (begintime, 4) c_year
+				FROM
+					t_contract_main
+			) t2 ON t1.contractid = t2.contractid
+			WHERE
+				c_year =@year and t1.projectid = p.projectid
+		)
 		else 0 
 		end yearcontractfigure,-- 当年合同金额
-		prj_f_sreceamt,
+
+		-- prj_f_sreceamt,
 /*
-		sum(case when pp.month < (select CONCAT(( 2015 -1),'12') from dual)  then pp.originaincome1 else 0 end ) wnqrsr,  
-		sum(case when substr(pp.month,1,4) =  2015 then pp.originaincome1 else 0 end) dnqrsr, 
-		sum(case when substr(pp.month,1,4) <= 2015  then pp.originaincome1 else 0 end) yqrsr,-- 已确认收入
+		sum(case when pp.month < (select CONCAT(( @year-1),'12') from dual)  then pp.originaincome1 else 0 end ) wnqrsr,  
+		sum(case when substr(pp.month,1,4) =  @year then pp.originaincome1 else 0 end) dnqrsr, 
+		sum(case when substr(pp.month,1,4) <= @yearthen pp.originaincome1 else 0 end) yqrsr,-- 已确认收入
 		-- p.budgetcontractamout-sum(pp.originaincome1) wqrsr, -- 未确认收入
-		p.budgetcontractamout-sum(case when substr(pp.month,1,4) <= 2015  then pp.originaincome1 else 0 end) wqrsr,
+		p.budgetcontractamout-sum(case when substr(pp.month,1,4) <= @year then pp.originaincome1 else 0 end) wqrsr,
 */
-		SUM(case when  2015  <= left(fi.yearmonth,4) then fi.curmonincome else 0 END ) yqrsr,-- 累计收入
-		SUM(case when  2015  = left(fi.yearmonth,4) then fi.curmonincome else 0 END ) dnqrsr,-- 当年收入
-		SUM(case when  2015  > left(fi.yearmonth,4) then fi.curmonincome else 0 END ) wnqrsr,-- 往年收入
-		(p.budgetcontractamout - SUM(case when  2015  <= left(fi.yearmonth,4) then fi.curmonincome else 0 END ) ) wqrsr, -- 未确认收入
+		SUM( fi.monthincome) yqrsr,-- 累计收入
+		SUM(case when  @year = left(fi.yearmonth,4) then fi.monthincome else 0 END ) dnqrsr,-- 当年收入
+		SUM(case when  @year > left(fi.yearmonth,4) then fi.monthincome else 0 END ) wnqrsr,-- 往年收入
+		(p.budgetcontractamout - SUM(fi.monthincome) ) wqrsr, -- 未确认收入
 
 		i.rece_amt_sum wnhk                                                           
 	FROM t_project_projectinfo p
@@ -143,12 +163,12 @@ FROM
 						from 
 						(SELECT proj_id,sum(rece_amt_sum) as rece_amt_sum
 												 FROM t_project_month_income 
-												 WHERE  income_month <=(select CONCAT(( 2015 -1),'12') from dual) 
+												 WHERE  income_month <=(select CONCAT(( @year-1),'12') from dual) 
 												 GROUP BY proj_id)aa1
 						LEFT JOIN
 						(select projectid,sum(a.p_yreceamt) as receamt  
 														 from view_project_srece_tian a 
-														 where substr(msrecedate,1,4) <  2015 
+														 where substr(msrecedate,1,4) <  @year
 														 GROUP BY a.projectid)aa2
 						on aa1.proj_id = aa2.projectid) i 
 	ON i.proj_id=p.projectid
@@ -159,29 +179,36 @@ FROM
 	-- ON t.projectid=p.projectid
 -- 	LEFT JOIN t_income_projectincome  pp
 -- 	ON pp.projectid=p.projectid
-	LEFT JOIN (SELECT projectid, curmonincome, yearmonth from t_income_prjmonthincome_fi) fi  
+	LEFT JOIN (SELECT projectid, (curmonincome+adjustincome+taxfreeincome) monthincome, yearmonth from t_income_prjmonthincome_fi) fi  
 	ON fi.projectid=p.projectid
-	left join (SELECT projectid, SUM(f_sreceamt) prj_f_sreceamt from t_contract_stage_ysf_tian GROUP BY projectid) ysf
-	on ysf.projectid = p.projectid
+	-- left join (SELECT projectid, SUM(f_sreceamt) prj_f_sreceamt from t_contract_stage_ysf_tian GROUP BY projectid) ysf
+	-- on ysf.projectid = p.projectid
 	where p.projecttype  not in (5,8)     --   and  t.projecttype  not in (5,8) 
 	GROUP BY p.projectid) a
-LEFT JOIN (SELECT
-	projectid,
-	sum(sumworkload) sumworkload,
-	CASE
-WHEN  SUBSTR(yearmonth FROM 1 FOR 4)=DATE_FORMAT(current_timestamp(),'%Y' ) THEN
-	sum(sumworkload)
-ELSE
-	0
-END projectsumworkload
-FROM
-	t_project_monthbudget
-GROUP BY
-	projectid) m
-ON m.projectid=a.projectid
+LEFT JOIN (
+		SELECT targetid, SUM(workhours/8) projectsumworkload
+		from t_report_workhourdetail
+		WHERE workhourtype = 0 and year <= DATE_FORMAT(current_timestamp(),'%Y' )
+		GROUP BY targetid
+) m
+ON m.targetid=a.projectid
+left join 
+(
+SELECT 
+		tradeid,tradecode,
+		max(case when tradecode = 't_project_projectinfo_addition_zb' and infoex = '1' then substring_index(substring_index(concat('\\',attachmentname) ,'\\',-1),'：',1) end) zbtzs,
+		max(case when tradecode = 't_project_projectinfo_addition_rc' and infoex = '2' then substring_index(substring_index(concat('\\',attachmentname) ,'\\',-1),'：',1) end) rctzs,
+		max(case when tradecode = 't_project_projectinfo_addition_em' and infoex = '3' then substring_index(substring_index(concat('\\',attachmentname) ,'\\',-1),'：',1) end) jfyj
+from t_public_attachment 
+WHERE infoex in (1,2,3)
+GROUP BY tradeid
+)b on a.projectid = b.tradeid
 
-where 1=1
+where
+1=1
 --  {projectno}
---  {projectname}
--- and a.projectid = 2813
-ORDER BY sale;
+--   {projectname}
+-- {srzm}
+-- 
+ORDER BY sale
+;
