@@ -37,10 +37,18 @@ FROM
 				from t_budget_selfbudget
 				WHERE extend1 is not null
 				GROUP BY budgetid, budgetcategory, extend1
+				
+				union all
+				select 
+					id budgetid2, purchaseno beiyong, purchasename budgetname2,
+					'06' budgetcategory2, CONCAT('6', purchasetype) budgettype2
+				from t_inpurchase_main
 		) budget on x.budgetid = budget.budgetid2 and x.budgetcategory = budget.budgetcategory2 and x.budgettype = budget.budgettype2
 
 where 1=1
 --  {companyname}{beiyong}
+-- and SUBSTRING_INDEX(btype,'-',1) = '内采费用预算'
+and budget.beiyong is null
 ORDER BY x.userid
 
 
