@@ -48,7 +48,7 @@ FROM
 where 1=1
 --  {companyname}{beiyong}
 -- and SUBSTRING_INDEX(btype,'-',1) = '内采费用预算'
-and budget.beiyong is null
+-- and budget.beiyong is null
 ORDER BY x.userid
 
 
