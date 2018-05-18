@@ -1,6 +1,7 @@
 set @yearmonth_min := 201801;
 set @yearmonth_max := 201803;
 SELECT
+		CONCAT(@yearmonth_min,'-',@yearmonth_max) search_range,
 		base.`no`, base.`name`, base.type,
 		base.gfamt,
 		realfee.sjfy, fy.fy1 manualfee_spxs, fy.fy2 manualfee_other, (fy1+fy2) cgcb,
@@ -156,6 +157,7 @@ and (realfee.sjfy || fy.fy1 || fy.fy2 || cb1.gz || cb1.gzdiff || cb1.jj || cb3.s
 union all
 
 SELECT 
+		CONCAT(@yearmonth_min,'-',@yearmonth_max) search_range,
 		'人力成本差异', null, '人力成本差异' type,
 		null,null, null, null, null,
 		null,null, gzdiff, null, null,
