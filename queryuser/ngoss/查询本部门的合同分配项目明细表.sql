@@ -10,7 +10,7 @@ FROM(
 		contractno,contractname,id,orderid,pono,type,typename,stagename stagedescription,
 		ybilldate,ybillamt,yrecedate,yreceamt,sbilldate,srecedate,ifnull(sbillamt,0) sbillamt,ifnull(sreceamt,0) sreceamt,
 		ifnull(f_sbillamt,0) sallocatebillamt,	ifnull(f_sreceamt,0) sallocatepayamt,	ifnull(f_ybillamt,0) allocatebillamt,	ifnull(f_yreceamt,0) allocatepayamt,
-		f_fpperson,f_fpdate,insertdate -- 预计分配人 分配日期 快照日期
+		getusername(f_fpperson) f_fpperson,f_fpdate,insertdate -- 预计分配人 分配日期 快照日期
 	from t_contract_stage_ysf_tian_his
 	union all
 	select 	-- 当天数据
@@ -18,11 +18,12 @@ FROM(
 		contractno,contractname,id,orderid,pono,type,typename,stagename stagedescription,
 		ybilldate,ybillamt,yrecedate,yreceamt,sbilldate,srecedate,ifnull(sbillamt,0) sbillamt,ifnull(sreceamt,0) sreceamt,
 		ifnull(f_sbillamt,0) sallocatebillamt,	ifnull(f_sreceamt,0) sallocatepayamt,	ifnull(f_ybillamt,0) allocatebillamt,	ifnull(f_yreceamt,0) allocatepayamt,
-		f_fpperson,f_fpdate,insertdate
+		getusername(f_fpperson) f_fpperson,f_fpdate,insertdate
 	from t_contract_stage_ysf_tian
 ) ysf
 left join t_project_projectinfo project on ysf.projectid = project.projectid
 left join t_contract_main contract on ysf.contractid = contract.contractid
+-- where 1=1 {insertdate} 
 ) x
 where 1=1 
 -- and deptidp in (:roledatascope)
