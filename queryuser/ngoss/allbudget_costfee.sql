@@ -110,12 +110,12 @@ left join -- 实际费用
 left join -- 手录记账费用(按科目)
 (
 	SELECT 
-			extend1, prono, b.level2text fy2,
-			SUM(case when level1value like '%6301%' or level1value like '%6111%' then -payamount else payamount end) fy1
-		from t_budget_paymentbill_manual a, t_budget_accountingsubject b
-		WHERE  a.course = b.subjectid
--- 			and extend1 not in (12, '') 
--- 			and LEFT(acctdate,4)=2018
+			extend1, prono,
+			SUM(case when course in (50, 1258, 49, 1257) then payamount else 0 end) fy1, -- 商品销售/技术性成本
+			SUM(case when course in (SELECT subjectid from t_budget_accountingsubject WHERE level1value like '%6301%' or level1value like '%6111%') then -payamount when course in (50,1258, 49, 1257) then 0 else payamount end ) fy2-- 其他调整成本
+		from t_budget_paymentbill_manual a
+		WHERE  1=1
+			and extend1 not in (12, '') 
 			and acctdate between @yearmonth_min and @yearmonth_max
 		GROUP BY prono, course
 )fy on base.`no` = fy.prono
@@ -175,6 +175,27 @@ FROM
 		where (yearmonth between @yearmonth_min and @yearmonth_max) and gzcourse in (64010502, 64010504)
 		GROUP BY budgetid, deptid
 )gzdiff
+
+union all
+
+SELECT
+		CONCAT(@yearmonth_min,'-',@yearmonth_max) search_range,
+		'部门调整费用' `no`, null, '部门调整费用' type,
+		null,null, fy1, fy2, null,
+		null,null, null, null, null,
+		calcdept calcdeptname, linename, remark4 deptname
+FROM
+(
+		SELECT 
+			b.calcdept, b.linename, b.remark4,		
+			SUM(case when course in (50, 1258, 49, 1257) then payamount else 0 end) fy1, -- 商品销售/技术性成本
+			SUM(case when course in (SELECT subjectid from t_budget_accountingsubject WHERE level1value like '%6301%' or level1value like '%6111%') then -payamount when course in (50,1258, 49, 1257) then 0 else payamount end ) fy2-- 其他调整成本
+		from t_budget_paymentbill_manual a, t_sys_mngunitinfo b
+		WHERE 
+			extend1 in (12, '')	and acctdate between @yearmonth_min and @yearmonth_max
+			and a.depid = b.unitid
+		GROUP BY b.calcdept
+)bmfy
 
 
 ORDER BY `no`
