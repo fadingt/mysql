@@ -1,7 +1,7 @@
 set @searchtime := 20180515;
 SELECT
 	p.*,
-	`m1`,`m2`,`m3`,`m4`,`m5`,`m6`,`m7`, prjincome, prjsbillamt
+	`m1`,`m2`,`m3`,`m4`,`m5`,`m6`,`m7`, prjincome, prjsbillamt, diss
 
 FROM
 	(
@@ -36,26 +36,38 @@ join (
 			sum(case when yearmonth < DATE_FORMAT(SUBDATE(@searchtime,INTERVAL 24 MONTH), '%Y%m') then wpys else 0 end) 'm7'
 		from
 		(
-			SELECT 
-				a.projectid, projectno, projectname, yearmonth, income,sumincome, sumincomeb,
+				SELECT
+					a.*,ifnull(f_sbillamt,0),
 				case 
-					when sumincome > IFNULL(b.f_sbillamt,0) and IFNULL(sumincomeb,0) >= IFNULL(b.f_sbillamt, 0) then income
-					when sumincome > IFNULL(b.f_sbillamt,0) and IFNULL(sumincomeb,0) < IFNULL(b.f_sbillamt,0) then sumincome - IFNULL(b.f_sbillamt,0)
-					when sumincome <= IFNULL(b.f_sbillamt,0) then 0  else 'what' end as wpys
-			from  `query`.t_zhangling a
-			left join
-			(
-					SELECT 
-							projectid,
-							SUM(f_sbillamt) f_sbillamt
-					from t_contract_stage_ysf_tian
-					WHERE f_sbillfpdate is not null and left(f_sbillfpdate,6) > 201612 and left(f_sbillfpdate,6)<=@searchtime
-					GROUP BY projectid
-			) b on a.projectid = b.projectid
-			union all
-			SELECT
-				projectid, projectno, projectname,'201612' as yearmonth, null, null, null, diss as wpys
-			FROM `t_income_initincome2`
+					when sumincome > ifnull(f_sbillamt,0) and sumincomeb >= ifnull(f_sbillamt,0) then income
+					when sumincome > ifnull(f_sbillamt,0) and sumincomeb < ifnull(f_sbillamt,0) then sumincome - ifnull(f_sbillamt,0)
+					when sumincome <= ifnull(f_sbillamt,0) then 0 end as wpys
+				from
+				(
+							SELECT
+								a.projectid, projectno, projectname, yearmonth, income, 
+								(sumincome+IFNULL(c.diss,0)) sumincome, (IFNULL(sumincomeb,0)+IFNULL(c.diss,0)) sumincomeb
+							from  `query`.t_zhangling a
+							left join	(
+									SELECT
+										projectid,  diss
+									FROM `t_income_initincome2`
+							) c on a.projectid = c.projectid
+							union all
+							SELECT
+								projectid, projectno, projectname,'201612' as yearmonth, diss, diss, 0
+							FROM `t_income_initincome2`
+							where projectid is not null
+
+				)a
+				left join (
+						SELECT 
+								projectid,
+								SUM(f_sbillamt) f_sbillamt
+						from t_contract_stage_ysf_tian
+						WHERE left(f_sbillfpdate,6)> 201612 and left(f_sbillfpdate,6)<= @searchtime
+						GROUP BY projectid
+				) b on a.projectid = b.projectid
 		)x
 	left join (SELECT projectid, SUM(IFNULL(f_sbillamt,0)) prjsbillamt from t_contract_stage_ysf_tian GROUP BY projectid) x1 on x.projectid = x1.projectid
 	left join (select projectid, SUM(curmonincome+adjustincome-taxfreeincome+curmontax) prjincome from t_income_prjmonthincome_fi GROUP BY projectid) x2 on x.projectid = x2.projectid
