@@ -1,8 +1,6 @@
 	SELECT
-		a.projectid,
-		IFNULL(b.projectno,c.projectno) `projectno`,
-		IFNULL(b.projectname,c.projectname) 'projectname',
-		CONCAT(a.yearmonth2,'->',a.yearmonth1) `yearmonth`,
+		b.projectno, b.projectname,
+		CONCAT(b.yearmonth,'->',c.yearmonth) `yearmonth`,
 		case when b.projecttype != c.projecttype then CONCAT(b.projecttype,'->',c.projecttype)
 		when b.projecttype is null then CONCAT('->',c.projecttype)
 		when c.projecttype is null then CONCAT(b.projecttype,'->')
@@ -36,16 +34,6 @@
 		when c.budgetcontractamout is null then CONCAT(b.budgetcontractamout,'->')
 		else b.budgetcontractamout end 'budgetcontractamout'
 	from (
-		SELECT DISTINCT a.projectid, b.yearmonth1, b.yearmonth2
-		FROM t_income_prjmonthincome_prjstatic a
-			JOIN (
-				SELECT MAX(yearmonth) AS yearmonth1
-					, DATE_FORMAT(DATE_SUB(CONCAT(MAX(yearmonth), '01'), INTERVAL 1 MONTH), '%Y%m') AS yearmonth2
-				FROM t_income_prjmonthincome_prjstatic
-			) b
-			ON a.yearmonth = b.yearmonth1 OR a.yearmonth = b.yearmonth2
-	)a
-	left join (
 			SELECT 
 				projectid, projectno, projectname, yearmonth, 
 				translatedict('IDFS000091',projecttype) projecttype,
@@ -60,8 +48,8 @@
 				FROM t_income_prjmonthincome_prjstatic
 			) b
 			on a.yearmonth = b.yearmonth2
-	)b on a.projectid = b.projectid
-	left join (
+	)b,
+	(
 			SELECT 
 				projectid, projectno, projectname, yearmonth, 
 				translatedict('IDFS000091',projecttype) projecttype,
@@ -76,12 +64,10 @@
 				FROM t_income_prjmonthincome_prjstatic
 			) b
 			on a.yearmonth = b.yearmonth1
-	)c on a.projectid = c.projectid
-where 1=1 
+	)c
+where b.projectid = c.projectid
 and (
-	b.projecttype <> c.projecttype || b.businesstype <> c.businesstype
- || b.prjstatus <> c.prjstatus || b.incometype <> c.incometype
- || b.startdate <> c.startdate || b.enddate <> c.enddate
- || b.maintaincedate <> c.maintaincedate || b.budgetcontractamout <> c.budgetcontractamout
+	b.projecttype <> c.projecttype || b.businesstype <> c.businesstype || b.prjstatus <> c.prjstatus || b.incometype <> c.incometype || b.startdate <> c.startdate || b.enddate <> c.enddate || b.maintaincedate <> c.maintaincedate || b.budgetcontractamout <> c.budgetcontractamout
 )
-ORDER BY a.projectid
+and SUBSTRING_INDEX(b.projectno,'-',1) = 'YY'
+ORDER BY b.projectid
