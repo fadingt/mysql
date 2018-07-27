@@ -21,15 +21,12 @@ FROM
 		case when p.projectid in (select projectid from t_contract_projectrelation ) then null else TO_DAYS(DATE_FORMAT(s.contracttime,'%Y-%m-%d'))-TO_DAYS(date_format(now(),'%Y-%m-%d')) end chazhi,-- 签约预警（距当前日期） 
 		TO_DAYS(DATE_FORMAT(p.predictstartdate,'%Y-%m-%d'))-TO_DAYS(date_format(current_timestamp(),'%Y-%m-%d'))  chazhi2,-- 签约预警（距项目开始日期）
 
-		SUM(d.ybillamt) prj_ybillamt,-- 已转合同金额
-		SUM(d.yreceamt) prj_fsreceamt,-- 已分配合同金额
-		SUM(case when d.year = @year then d.yreceamt else 0 end) prj_dn_fsreceamt,-- 当年已分配合同金额
-		SUM(case when d.year = @year then sreceamt else 0 end) dnhk,-- 当年回款
-		SUM(case when d.year < @year then sreceamt else 0 end) wnhk,
-		SUM( fi.monthincome) yqrsr,-- 累计收入
-		SUM(case when  @year = left(fi.yearmonth,4) then fi.monthincome else 0 END ) dnqrsr,-- 当年收入
-		SUM(case when  @year > left(fi.yearmonth,4) then fi.monthincome else 0 END ) wnqrsr,-- 往年收入
-		(p.budgetcontractamout - SUM(fi.monthincome) ) wqrsr -- 未确认收入
+		IFNULL(d1.ybillamt,0) prj_ybillamt,-- 已转合同金额
+		IFNULL(d2.prj_fsreceamt,0) prj_fsreceamt,-- 已分配合同金额
+		IFNULL(d2.prj_dn_fsreceamt,0) prj_dn_fsreceamt,-- 当年已分配合同金额
+		IFNULL(d.dnhk,0) dnhk,-- 当年回款
+		IFNULL(d.wnhk,0) wnhk,
+		fi.yqrsr, fi.dnqrsr, fi.wnqrsr, (p.budgetcontractamout - yqrsr ) wqrsr -- 未确认收入
 	FROM
 	(
 		SELECT 
@@ -60,20 +57,55 @@ FROM
 	ON p.projectid=s.projectid 
 
 	LEFT JOIN (
-		SELECT 
-			projectid, (curmonincome+adjustincome+taxfreeincome) monthincome, yearmonth 
-		from t_income_prjmonthincome_fi
+		select
+				projectid,
+				SUM( fi.monthincome) yqrsr,-- 累计收入
+				SUM(case when  @year = left(fi.yearmonth,4) then fi.monthincome else 0 END ) dnqrsr,-- 当年收入
+				SUM(case when  @year > left(fi.yearmonth,4) then fi.monthincome else 0 END ) wnqrsr-- 往年收入
+		FROM
+		(
+				SELECT 
+					projectid, (curmonincome+adjustincome+taxfreeincome) monthincome, yearmonth 
+				from t_income_prjmonthincome_fi
+		) fi
+		GROUP BY projectid
 	) fi ON fi.projectid=p.projectid
 
-	left join(
+	left join(-- 实际回款
+		SELECT
+			d.projectid,
+			SUM(case when d.year = @year then sreceamt else 0 end) dnhk,-- 当年回款
+			SUM(case when d.year < @year then sreceamt else 0 end) wnhk
+		from(
 			select
-				projectid, SUM(sreceamt) sreceamt, SUM(ybillamt) ybillamt, SUM(yreceamt) yreceamt, left(srecedate, 4) `year`
+				projectid, SUM(sreceamt) sreceamt, left(srecedate, 4) `year`
 			from t_project_stage_ys_tian
-			-- where srecedate is not null
+			where srecedate is not null
 			group by projectid, left(srecedate, 4)
+		)d
+		GROUP BY d.projectid
 	) d on d.projectid = p.projectid
+	left join(-- 预计开票 已转合同金额
+			select
+				projectid,SUM(ybillamt) ybillamt
+			from t_project_stage_ys_tian
+			group by projectid
+	) d1 on d1.projectid = p.projectid
+	left join(-- 预计回款 已分配金额
+		SELECT
+			d2.projectid,
+			SUM(d2.yreceamt) prj_fsreceamt,-- 已分配合同金额
+			SUM(case when d2.year = @year then d2.yreceamt else 0 end) prj_dn_fsreceamt-- 当年已分配合同金额
+		FROM(
+			select
+				projectid, SUM(yreceamt) yreceamt, left(yrecedate, 4) `year`
+			from t_project_stage_ys_tian
+			where srecedate is not null
+			group by projectid, left(yrecedate, 4)
+		)d2
+		GROUP BY d2.projectid
+	) d2 on d2.projectid = p.projectid
 
-	GROUP BY p.projectid
 ) a
 left join(
 		SELECT 
