@@ -10,6 +10,9 @@ from (select
 case when ttt.pono is not null  and SUBSTR(ttt.ddtime FROM 1 FOR 4)=SUBSTR(@yearmonth FROM 1 FOR 4) then ifnull(ttt.contractprice,0) 
      when ttt.pono is null   and SUBSTR(ttt.ddtime FROM 1 FOR 4)=SUBSTR(@yearmonth FROM 1 FOR 4) 
      then ifnull(ttt.contractprice,0) else 0 end as jnhtje,
+case when ttt.pono is not null  and SUBSTR(ttt.ddtime FROM 1 FOR 6)=SUBSTR(@yearmonth FROM 1 FOR 6) then ifnull(ttt.contractprice,0) 
+     when ttt.pono is null   and SUBSTR(ttt.ddtime FROM 1 FOR 6)=SUBSTR(@yearmonth FROM 1 FOR 6) 
+     then ifnull(ttt.contractprice,0) else 0 end as dyhtje,
       ttt.bill_amt_sum15+ttt.billshiyear16 as bill_amt_sum,   
       ttt.rece_amt_sum15+ttt.receshiyear16 as rece_amt_sum,ttt.* ,
 
@@ -20,7 +23,9 @@ case when ttt.pono is not null  and SUBSTR(ttt.ddtime FROM 1 FOR 4)=SUBSTR(@year
      ttt.bill_amt_sum15+ttt.billshiyear+ttt.billshiyear16+ttt.billshinow+ttt.billyulate-ttt.contractprice as billjy,
      ttt.rece_amt_sum15+ttt.receshiyear+ttt.receshiyear16+ttt.receshinow+ttt.receyulate-ttt.contractprice as recejy 
 from (select (case when c2.effectstatus=5  then '是'  else '否' end ) effectstatus ,c2.contractid,c2.billyjc,  c2.contractno,c2.contractname,c2.pono,
-c2.ddtime,c2.createtime,c2.type,getusername(c2.saleid) as sale,getcustname(c2.firstparty)firstparty,c2.secondparty,c2.finalcust as company,
+c2.ddtime,c2.createtime,c2.type,getusername(c2.saleid) as sale,
+(SELECT linename from t_sys_mngunitinfo where unitid = (SELECT deptid from t_sys_mnguserinfo where userid = c2.saleid)) salearea,
+getcustname(c2.firstparty)firstparty,c2.secondparty,c2.finalcust as company,
 case when c2.type in (2,4) then ifnull(c2.contractprice,0) when c2.type in (1,3) then ifnull(c2.poprice,0) end as contractprice,
 case when c2.type in (2,4) then ifnull(i.bill_amt_sum,0)   when c2.type in (1,3) then getOrderBillAmt(c2.id) end as bill_amt_sum15,
 case when c2.type in (2,4) then ifnull(i.rece_amt_sum,0)   when c2.type in (1,3) then getOrderReceAmt(c2.id) end as rece_amt_sum15,
@@ -33,7 +38,7 @@ ifnull(c2.recet6,0)recet6 from  (select c.*,a1.billyunow,a2.billshinow,a3.billsh
 a4.billyulate,a5.receyunow,a6.receshinow,a7.receshiyear,a2017.receshiyear17, 
 a8.receyulate,t1.billt1,t1.billt2,t1.billt3,t1.billt4,t1.billt5,t1.billt6,t2.recet1,t2.recet2,t2.recet3,t2.recet4,t2.recet5,t2.recet6 from(select 
  cc.lastmodtime1 as ddtime,d1.id,getBillYuJingCout(cc.contractid,0) as billyjc,d1.pono,d1.poprice,cc.* from  (select getcustname(p.finalcustomer)finalcust,c1.*, ctemp.lastmodtime1 from t_contract_main c1
-join(
+left join(
 	SELECT 
 		contractid contractid1, lastmodtime lastmodtime1 
 	from t_contract_maintmp a 
