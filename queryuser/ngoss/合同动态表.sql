@@ -13,7 +13,7 @@ case when ttt.pono is not null  and SUBSTR(ttt.ddtime FROM 1 FOR 4)=SUBSTR(@year
 case when ttt.pono is not null  and SUBSTR(ttt.ddtime FROM 1 FOR 6)=SUBSTR(@yearmonth FROM 1 FOR 6) then ifnull(ttt.contractprice,0) 
      when ttt.pono is null   and SUBSTR(ttt.ddtime FROM 1 FOR 6)=SUBSTR(@yearmonth FROM 1 FOR 6) 
      then ifnull(ttt.contractprice,0) else 0 end as dyhtje,
-      ttt.bill_amt_sum15+ttt.billshiyear16 as bill_amt_sum,   
+      ttt.bill_amt_sum15+ttt.billshiyear16 as bill_amt_sum,
       ttt.rece_amt_sum15+ttt.receshiyear16 as rece_amt_sum,ttt.* ,
 
      concat(TRUNCATE((ttt.bill_amt_sum15+ttt.billshiyear16+ttt.billshiyear+ttt.billshinow)/ttt.contractprice*100,2),'%') as billbili2, -- 新加当月实开
