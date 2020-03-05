@@ -41,10 +41,10 @@ checkstg.`应验阶段数`,
 checkstg.`已验阶段数`
 
 from mdl_aos_sapoinf poinf
-join plf_aos_dictionary POSTAGE on POSTAGE.DICT_CODE = poinf.S_POSTAGE and POSTAGE.DICT_TYPE = 'POSTAGE'
-join plf_aos_dictionary POTYPE on POTYPE.DICT_CODE = poinf.S_POTYPE and POTYPE.DICT_TYPE = 'POTYPE'
-join plf_aos_dictionary PROOPTYPE on PROOPTYPE.DICT_CODE = poinf.S_OPERTYPE and PROOPTYPE.DICT_TYPE = 'PROOPTYPE'
-join plf_aos_dictionary ApproStatus on ApproStatus.DICT_CODE = poinf.S_APPSTATUS and ApproStatus.DICT_TYPE = 'ApproStatus'
+join ngoss.plf_aos_dictionary_bak POSTAGE on POSTAGE.DICT_CODE = poinf.S_POSTAGE and POSTAGE.DICT_TYPE = 'POSTAGE'
+join ngoss.plf_aos_dictionary_bak POTYPE on POTYPE.DICT_CODE = poinf.S_POTYPE and POTYPE.DICT_TYPE = 'POTYPE'
+join ngoss.plf_aos_dictionary_bak PROOPTYPE on PROOPTYPE.DICT_CODE = poinf.S_OPERTYPE and PROOPTYPE.DICT_TYPE = 'PROOPTYPE'
+join ngoss.plf_aos_dictionary_bak ApproStatus on ApproStatus.DICT_CODE = poinf.S_APPSTATUS and ApproStatus.DICT_TYPE = 'ApproStatus'
 
 left join (
 	SELECT SUM(p.DL_BUDCOAMTI) DL_PROAMT, I_POID, p.S_APPSTATUS S_APPSTATUS,GROUP_CONCAT(p.ID ORDER BY p.id) ID, GROUP_CONCAT(p.S_PRJNO ORDER BY p.id) S_PRJNOS
@@ -60,9 +60,9 @@ left join (
 	GROUP BY I_POID
 ) cont on cont.I_POID = poinf.ID
 
-left join plf_aos_dictionary BIDRST on BIDRST.dict_code = poinf.S_BIDRST and BIDRST.dict_type = 'BIDRST'
-left join plf_aos_dictionary SIGNRATE ON SIGNRATE.DICT_CODE = POINF.S_SIGNRATE AND SIGNRATE.DICT_TYPE = 'SIGNRATE'
-left join plf_aos_dictionary bussCONstate ON bussCONstate.DICT_CODE = POINF.S_CONSTATE AND bussCONstate.DICT_TYPE = 'bussCONstate'
+left join ngoss.plf_aos_dictionary_bak BIDRST on BIDRST.dict_code = poinf.S_BIDRST and BIDRST.dict_type = 'BIDRST'
+left join ngoss.plf_aos_dictionary_bak SIGNRATE ON SIGNRATE.DICT_CODE = POINF.S_SIGNRATE AND SIGNRATE.DICT_TYPE = 'SIGNRATE'
+left join ngoss.plf_aos_dictionary_bak bussCONstate ON bussCONstate.DICT_CODE = POINF.S_CONSTATE AND bussCONstate.DICT_TYPE = 'bussCONstate'
 -- translatedict('SIGNRATE',poinf.S_SIGNRATE) `项目商机签约可能性`,
 -- translatedict('bussCONstate',poinf.S_CONSTATE) `签约状态`,
 left join (
