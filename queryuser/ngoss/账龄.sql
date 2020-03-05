@@ -1,3 +1,4 @@
+-- 查询日期
 set @searchtime := 20180515;
 SELECT
 	p.*,
@@ -7,7 +8,7 @@ FROM
 	(
 		SELECT 
 			projectid, projectno, projectname, -- 项目id 编号 名称
-			projecttype,-- 项目类型,
+			ngoss.translatedict(projecttype,-- 项目类型,
 			getusername(saleid) as sale,-- 销售代表
 			(SELECT getunitname(parentunitid) from t_sys_mngunitinfo WHERE unitid = (SELECT deptid from t_sys_mnguserinfo WHERE userid = saleid)) salearea, -- 销售代表所属销售大区
 			getusername(pm) as pmname, getusername(pd)pdname,-- 项目经理 总监
@@ -26,7 +27,7 @@ FROM
 	) p
 join (
 		SELECT
-			x.projectid, projectno, projectname, prjincome, IFNULL(prjsbillamt,0) prjsbillamt,
+			x.projectid, projectno, projectname, prjincome, IFNULL(prjsbillamt,0) prjsbillamt, diss,
 			sum(case when yearmonth = DATE_FORMAT(SUBDATE(@searchtime,INTERVAL 1 MONTH), '%Y%m') then wpys else 0 end) 'm1',
 			sum(case when yearmonth = DATE_FORMAT(SUBDATE(@searchtime,INTERVAL 2 MONTH), '%Y%m') then wpys else 0 end) 'm2',
 			sum(case when yearmonth = DATE_FORMAT(SUBDATE(@searchtime,INTERVAL 3 MONTH), '%Y%m') then wpys else 0 end) 'm3',
@@ -37,7 +38,7 @@ join (
 		from
 		(
 				SELECT
-					a.*,ifnull(f_sbillamt,0),
+					a.*,ifnull(f_sbillamt,0) f_sbillamt,
 				case 
 					when sumincome > ifnull(f_sbillamt,0) and sumincomeb >= ifnull(f_sbillamt,0) then income
 					when sumincome > ifnull(f_sbillamt,0) and sumincomeb < ifnull(f_sbillamt,0) then sumincome - ifnull(f_sbillamt,0)
@@ -58,7 +59,7 @@ join (
 								projectid, projectno, projectname,'201612' as yearmonth, diss, diss, 0
 							FROM `t_income_initincome2`
 							where projectid is not null
-
+							GROUP BY projectid
 				)a
 				left join (
 						SELECT 

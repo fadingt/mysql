@@ -1,0 +1,4 @@
+SELECT *
+from mdl_aos_canlender
+where DATE_FORMAT(DT_CANDAY,'%Y%m') BETWEEN 201910 and 201912 
+and S_CANTYPE = 1

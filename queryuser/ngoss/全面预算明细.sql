@@ -2,8 +2,8 @@ select
 x.*,
 t.remark4 deptname, t.linename, t.calcdept,-- 预算部门 条线 核算部门 
 sqys.buno beiyong from (
-select  type,budgetno,budgetname,unitid,chargeperson,jianliren,yearmonth, IFNULL(fy,0) fy, IFNULL(sjfy,0) sjfy, IFNULL(gz,0) gz, IFNULL(sjgz,0) sjgz ,year 
-from (
+-- select  type,budgetno,budgetname,unitid,chargeperson,jianliren,yearmonth, IFNULL(fy,0) fy, IFNULL(sjfy,0) sjfy, IFNULL(gz,0) gz, IFNULL(sjgz,0) sjgz ,year 
+-- from (
 select  
 type,
 typevalue,
@@ -17,12 +17,15 @@ jianliren,
 -- gfamty,
 -- gramt,
 -- gramty,
+tall.year,
 t1.yearmonth,
-fy,
-sjfy,
-gz,
-sjgz,
-tall.year
+gfamt, -- 费用总额度
+fy gfamty,-- 已提交的费用
+sjfy,-- 已使用的费用
+gramt, -- 人天总额
+gz,-- 标准成本
+sjgz-- 实际成本
+
 from (
 
 	select tf.budgetid,'管理预算' as type,2 as typevalue,ifnull(budgetno,'无编号') budgetno,budgetname,departmentid unitid ,getusername(chargeperson) chargeperson, jianliren, gfamt,gramt,tf.year  
@@ -69,7 +72,7 @@ from (
 	left JOIN (
 	select * from 
 	t_budget_selfbudget where budgetcategory=01 and budgettype = '11' and left(enddate,4)=2018 )t1
-	on tall.userid=t1.userid 
+	on tall.userid = t1.userid
 
 	UNION ALL -- ==================================================================================
 
@@ -116,54 +119,11 @@ left join -- 已记账费用
 	where left(course, 1) = '*'
 	GROUP BY extend1, CONCAT(year,month)
 ) t3 on t3.extend1 = tall.budgetno and t3.yearmonth = t1.yearmonth
-
-
-/*
-LEFT JOIN   -- 已提交人天（标准成本）
-(
-	select 
-		sum(gramt) gramty,count(*) grcon,deptid,year,targetid,lineid,workhourtype
-	from(
-
-select gramt,deptid,year,targetid,workhourtype from (
-select workdays*defaultcost as gramt,staf_leve,defaultcost,departmentid deptid,year,targetid,workhourtype from 
-						 (
-			   select employeeid,sum(workdays) workdays,departmentid,year,targetid,workhourtype from (
-						select sum(workdays) as workdays,employeeid,departmentid,year,targetid,workhourtype 
-						FROM (
-									 select employeeid,sum(workhours)/8.0 as workdays,departmentid,left(yearmonthday,4) year,t.targetid ,workhourtype from t_project_workhourmanager t
-									 where  left(yearmonthday,6) <= DATE_FORMAT(now(),'%Y%m') 
-											 -- 	and t.workhourtype =2 
-											and `status` in (2,3) GROUP BY employeeid,targetid 
-							) a  GROUP BY employeeid,targetid
-			) x  GROUP BY employeeid,targetid   ) aa
-							LEFT JOIN 
-						 		t_sys_mnguserinfo on employeeid = userid
-						  left join t_public_levelcost cost on staf_leve = postlevel ) x
-	
-	)x,t_sys_mngunitinfo t where t.unitid=x.deptid and t.isdel=0 GROUP BY  year,targetid,workhourtype
-)tr on  tall.year=tr.year  and ( tr.targetid=tall.budgetid) and tr.workhourtype=tall.typevalue-- and tr.deptid=tall.unitid 
-*/
-/*
-left join -- 已记账费用
-(
-	SELECT
-		budgetid,	budgetnature,	budgettype,	budgetno,-- 预算编号 类型
-		left(happendate,6) yearmonth, SUM(amt) amt, -- 费用发生年月/金额
-		accstatus-- 记账状态
-	from report_reimbursement_paymentbill
-	where accstatus = '已记账'
-	GROUP BY budgetid, left(happendate,6)
-) fy on fy.fy_budgetno = tall.budgetno
-*/
-
-
-
-)xx 
+-- )xx 
 
 where 1=1  
 -- and (gfamt is not null or gramt is not null)
-and year >=2018
+and tall.year = 2018
 
 )x
 LEFT JOIN (SELECT unitid, remark4, lineid, linename, calcdept from t_sys_mngunitinfo WHERE isdel =0 ) t on x.unitid = t.unitid

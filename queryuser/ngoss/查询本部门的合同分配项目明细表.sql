@@ -3,7 +3,8 @@ select * from (
 SELECT
 	ysf.*,
 	project.projectno, project.projectname, project.deptid deptidp,
-	getcustname(contract.firstparty) custname,  contract.deptid
+	getusername(contract.saleid) salename, getcustname(contract.firstparty) custname,  contract.deptid,
+	(SELECT linename from t_sys_mngunitinfo where unitid = (SELECT deptid from t_sys_mnguserinfo where userid = contract.saleid)) salearea
 FROM(
 	select 	-- 历史数据
 		contractid, projectid,
@@ -23,10 +24,10 @@ FROM(
 ) ysf
 left join t_project_projectinfo project on ysf.projectid = project.projectid
 left join t_contract_main contract on ysf.contractid = contract.contractid
--- where 1=1 {insertdate} 
+-- where 1=1 {insertdate} and project.deptid  in (:roledatascope)
 ) x
 where 1=1 
--- and deptidp in (:roledatascope)
 -- {contractno}
 -- {contractname}
 -- {custname}
+{salename} {salearea}

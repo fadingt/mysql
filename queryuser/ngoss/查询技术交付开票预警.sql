@@ -23,6 +23,7 @@ b.projectid,
 	b.projectstep,
 	b.pm,
 	b.pd,
+	b.saleid beiyong,
 	b.projpredictenddate,
 	b.projjswcrq,
 	CASE
@@ -56,7 +57,8 @@ b.projectid,
 		d.pd,
 		d.predictenddate projpredictenddate,
 		d.jswcrq projjswcrq,
-		d.projectstep
+		d.projectstep,
+		d.saleid
 	FROM
 		t_contract_project_stage b,
 		t_project_stepbudget c,
@@ -70,3 +72,9 @@ b.projectid,
 		b.stageid
 ) b ON t.type = b.extend1
 AND t.id = b.stageid
+join (select contractid, effectstatus from t_contract_main where effectstatus != 5 and effectstatus  != 8 ) m on t.contractid = m.contractid
+
+
+where 1= 1
+and ybilldate>=20160101 and yrecedate>=20160101
+-- and projectno is null

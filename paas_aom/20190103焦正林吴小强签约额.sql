@@ -1,0 +1,4 @@
+SELECT 
+	S_CONCODE, S_CONNAME, DT_FILEDATE, DT_PSIGNDATE
+from mdl_aos_sacont
+where IS_DELETE = 0 and S_CONTYPE = 01

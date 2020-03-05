@@ -117,7 +117,7 @@ left join -- 手录记账费用(按科目)
 		WHERE  1=1
 			and extend1 not in (12, '') 
 			and acctdate between @yearmonth_min and @yearmonth_max
-		GROUP BY prono, course
+		GROUP BY prono
 )fy on base.`no` = fy.prono
 
 left join -- 标准成本

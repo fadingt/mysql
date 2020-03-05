@@ -1,9 +1,10 @@
+set @yearmonth_max := 201803;
+set @yearmonth_min := 201801;
 select 
-	t.*,
-	t1.totalused, -- 已使用预算金额
+	base.*,
+	IFNULL(sf.sjfy,0) totalused, -- 实际费用
 	ifnull(r.ramt,0) ramt, -- 预计人力成本
-	x.yearmonth,
-	ifnull(x.usedcost,0)usedcost -- 已使用人力成本
+	ifnull(sr.sjgz,0) usedcost -- 已使用人力成本
 from
 (
 	select 
@@ -13,65 +14,49 @@ from
 		budgetamount, -- 预算费用总金额
 		getusername(chargeperson) chargepersonname, getunitname(company) companyname-- 预算负责人 公司名称
 	from t_budget_deptannualbudget
+	where budgetnature = '1'
 
-) t 
-LEFT JOIN
+) base
+
+left join -- 实际费用
 (
-	select
-		budgetid, sum(totalused) as totalused
-	from t_budget_selfbudget
-	where budgetcategory = '04'
-	GROUP BY budgetid
-) t1 on t.budgetid = t1.budgetid 
-left join 
+		SELECT
+			unit.calcdept,unit.linename, voucher.depid,
+			reim.budgetid,reim.budgetnature,reim.budgettype, reim.extend1,
+			SUM(CASE	WHEN (`invoi`.`invoicetype` = '3') THEN `invoi`.`bta` ELSE `invoi`.`amt` END) sjfy
+		FROM t_budget_paymentbill voucher
+		JOIN `t_budget_reimbursement` `reim` ON `reim`.`paymentid` = `voucher`.`id`
+		JOIN `t_budget_reimbursementdetail` `invoi`
+		 ON `reim`.`id` = `invoi`.`reimbursementid` and `invoi`.`course` NOT IN ('161', '163')
+		JOIN t_sys_mngunitinfo unit on unit.unitid = voucher.depid
+		where left(voucher.acctdate, 6) between @yearmonth_min and @yearmonth_max
+-- 		WHERE left(voucher.acctdate,4)=2018
+		GROUP BY reim.extend1
+)sf on base.`budgetno` = sf.extend1
+
+left join -- 预计人力成本
 (
 	select 
-		budgetid, deptid, sum(infoex2) ramt -- 人力
+		budgetid, deptid, sum(infoex2) ramt
 	from  t_budget_deptlevelcost
 	GROUP BY budgetid
-)r on r.budgetid=t.budgetid 
+)r on r.budgetid = base.budgetid 
 
-left join (
+left join (-- 实际人力成本
+		SELECT
+			SUBSTRING_INDEX(projectno,'-',1),projectno,
+			SUM(debitamount) sjgz
+		FROM `t_cost_voucherexport`
+		WHERE myear = 2018 and mmonth BETWEEN SUBSTR(@yearmonth_min FROM 5 FOR 2) and SUBSTR(@yearmonth_max FROM 5 FOR 2)
+		GROUP BY projectno
+)sr on base.`budgetno` = sr.projectno
 
-	select 
-		ifnull(cast(sum(workdays*defaultcost) as decimal(12,2)),0) as usedcost ,targetid,yearmonth
-	from (  
-		select sum(workdays) as workdays,employeeid,targetid,yearmonth
-		from 	
-		( 
--- 已通过的考勤
-				select 
-				FORMAT(sum(workhours)/8,2) as workdays,employeeid,targetid,left(yearmonthday,6) yearmonth 
-				from t_project_workhourmanager  
-				where workhourtype=2 and status = 3 
-				GROUP BY employeeid,targetid,left(yearmonthday,6)
-
-				UNION ALL 
-
--- 待审批的考勤
-				select FORMAT(sum(workhours)/8,2) as workdays,employeeid,targetid,left(yearmonthday,6) yearmonth 
-				from t_project_workhourmanager  
-				where workhourtype=2 and status = 2 
-				GROUP BY employeeid,targetid,left(yearmonthday,6)
-				) x GROUP BY employeeid,targetid,yearmonth
-		 )a 
-	LEFT JOIN t_sys_mnguserinfo m on employeeid = userid
-	LEFT JOIN t_public_levelcost cost on staf_leve = postlevel 
-	GROUP BY targetid,yearmonth
-) x on x.targetid=t.budgetid
-
-left join
-(
-	SELECT 
-	budgetid, budgetno, budgetname, SUM(gz) gramty2, yearmonth
-	FROM `t_project_standardcost_sjgz`
-	GROUP BY budgetid, yearmonth
-) x2 on x2.budgetid = t.budgetid
 
 where 1=1
-and t.budgetnature = '1'
+
 -- {budgetno}
 -- {inputdate}
 -- {department}
 -- {budgetname}
  order by budgetno
+;

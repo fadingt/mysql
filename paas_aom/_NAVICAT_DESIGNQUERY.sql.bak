@@ -1,0 +1,148 @@
+SELECT
+ngoss.getcompanyname(poinf.I_FINANCEID) `财务主体`,
+IFNULL(qc.`2019年期初成本`,0) `2019年期初成本`,
+IFNULL(qc1.`2016年期初成本`,0) `2016年期初成本`,
+IFNULL(gz1,0) `一月工资`,
+IFNULL(gz2,0) `二月工资`,
+IFNULL(gz3,0) `三月工资`,
+IFNULL(gz4,0) `四月工资`,
+IFNULL(gz5,0) `五月工资`,
+IFNULL(gz6,0) `六月工资`,
+IFNULL(gz7,0) `七月工资`,
+IFNULL(gz8,0) `八月工资`,
+IFNULL(gz9,0) `九月工资`,
+IFNULL(gz10,0) `十月工资`,
+IFNULL(gz11,0) `十一月工资`,
+IFNULL(gz12,0) `十二月工资`,
+IFNULL(amt1,0) `一月费用`,
+IFNULL(amt2,0) `二月费用`,
+IFNULL(amt3,0) `三月费用`,
+IFNULL(amt4,0) `四月费用`,
+IFNULL(amt5,0) `五月费用`,
+IFNULL(amt6,0) `六月费用`,
+IFNULL(amt7,0) `七月费用`,
+IFNULL(amt8,0) `八月费用`,
+IFNULL(amt9,0) `九月费用`,
+IFNULL(amt10,0) `十月费用`,
+IFNULL(amt11,0) `十一月费用`,
+IFNULL(amt12,0) `十二月费用`,
+
+p.S_PRJNO `项目编号`,
+p.S_PRJNAME `项目名称`,
+org2.s_name `一级部门`,
+org1.s_name `二级部门`,
+ngoss.getfullorgname(p.s_dept) `项目所属部门`,
+hrorg.S_FIN_CODE `财务编码`,
+prjclass.DICT_NAME `项目分类`,
+IDC1.dict_name `解决方案`,
+IDC2.dict_name `解决子案2`,
+prjstatus.DICT_NAME `项目状态`,
+ApproStatus.DICT_NAME `审批状态`,
+opertype.DICT_NAME `操作类型`,
+PBaseType.DICT_NAME `依据状态`,
+incomeway.DICT_NAME `收入确认方式`,
+pm.REAL_NAME `项目经理`,
+pd.REAL_NAME `项目总监`,
+cust.S_CUSTNAME `客户名称`,
+
+sale.REAL_NAME `销售代表`,
+saleorg.S_NAME `销售部门`,
+case when LENGTH(saleorg.S_ORGCODE) > 13 then (SELECT left(S_NAME,2) from mdl_aos_hrorg where ID = saleorg.S_PRE_ORG) else saleorg.S_NAME end `销售大区`,
+tech1.REAL_NAME `客户经理a`,
+tech2.REAL_NAME `客户经理b`,
+DT_SETUPTIME `项目创建日期`,
+p.DT_STARTTIME `项目开始日期`,
+p.DT_ENDTIME `项目结束日期`,
+p.DT_MAINEND  `项目维保期`,
+p.DL_BUDCOAMTI `立项金额`
+
+from mdl_aos_project p
+left join mdl_aos_sapnotify note on p.I_PRJNOTICE = note.ID
+left join mdl_aos_sapoinf poinf on note.I_POID = poinf.ID
+left join mdl_aos_hrorg hrorg on hrorg.s_orgcode = p.s_dept
+
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'IDC1') IDC1 ON IDC1.dict_code = p.S_IDC1
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'IDC2') IDC2 ON IDC2.dict_code = p.S_IDC2
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'prjclass') prjclass on prjclass.DICT_CODE = p.S_PRJCLASS
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'prjstatus') prjstatus on prjstatus.DICT_CODE = p.S_PRJSTATUS
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'ApproStatus') ApproStatus on ApproStatus.DICT_CODE = p.S_APPSTATUS
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'OPERTYPE') opertype on opertype.DICT_CODE = p.S_OPERTYPE
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'PBaseType') PBaseType on PBaseType.DICT_CODE = p.S_BASEFULL
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'INCOMEWAY') incomeway on incomeway.DICT_CODE = p.S_INCOMEWAY
+
+left join plf_aos_auth_user pm on pm.ID = p.S_MANAGER
+left join plf_aos_auth_user pd on pd.ID = p.S_DIRECTOR
+left join mdl_aos_hrorg org on org.S_ORGCODE = p.S_DEPT
+left join mdl_aos_hrorg org1 on org1.s_orgcode = left(p.s_dept,13)
+left join mdl_aos_hrorg org2 on org2.s_orgcode = left(p.s_dept,10)
+
+left join mdl_aos_sapnotify nify on nify.ID = p.I_PRJNOTICE
+left join mdl_aos_sapoinf buz on buz.ID = nify.I_POID
+left join mdl_aos_sacustinf cust on cust.ID = buz.I_CUSTID
+left join plf_aos_auth_user tech1 on tech1.ID = cust.S_FIRTECH
+left join plf_aos_auth_user tech2 on tech2.ID = cust.S_SECTECH
+left join plf_aos_auth_user sale on sale.ID = cust.S_SALEOWNER
+left join mdl_aos_hrorg saleorg on saleorg.S_ORGCODE = sale.ORG_CODE
+left join (
+		SELECT 
+			budgetno,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'01') and type='费用' then  amt else 0 end,0) )amt1,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'02') and type='费用' then  amt else 0 end,0) )amt2,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'03') and type='费用' then  amt else 0 end,0) )amt3,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'04') and type='费用' then  amt else 0 end,0) )amt4,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'05') and type='费用' then  amt else 0 end,0) )amt5,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'06') and type='费用' then  amt else 0 end,0) )amt6,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'07') and type='费用' then  amt else 0 end,0) )amt7,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'08') and type='费用' then  amt else 0 end,0) )amt8,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'09') and type='费用' then  amt else 0 end,0) )amt9,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'10') and type='费用' then  amt else 0 end,0) )amt10,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'11') and type='费用' then  amt else 0 end,0) )amt11,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'12') and type='费用' then  amt else 0 end,0) )amt12,
+
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'01') and type='人力成本' then  amt else 0 end,0) )gz1,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'02') and type='人力成本' then  amt else 0 end,0) )gz2,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'03') and type='人力成本' then  amt else 0 end,0) )gz3,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'04') and type='人力成本' then  amt else 0 end,0) )gz4,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'05') and type='人力成本' then  amt else 0 end,0) )gz5,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'06') and type='人力成本' then  amt else 0 end,0) )gz6,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'07') and type='人力成本' then  amt else 0 end,0) )gz7,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'08') and type='人力成本' then  amt else 0 end,0) )gz8,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'09') and type='人力成本' then  amt else 0 end,0) )gz9,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'10') and type='人力成本' then  amt else 0 end,0) )gz10,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'11') and type='人力成本' then  amt else 0 end,0) )gz11,
+		sum(ifnull(case when yearmonth=CONCAT(year(NOW()),'12') and type='人力成本' then  amt else 0 end,0) )gz12
+		from (
+			SELECT
+				budgetno, SUM(debit) amt, financialbody, b.S_COMPNAME, CONCAT(`year`,`month`) as yearmonth, '费用' type
+			FROM `t_snap_fi_voucher` a
+			left join mdl_aos_compcode b on a.financialbody = b.ID
+			where budgetno like 'yy%' and  a.zzno = '6401'
+			and month is not null and year is not null-- 未记账
+			GROUP BY financialbody, CONCAT(`year`,`month`), budgetno
+			union all
+			SELECT budgetno, SUM(amt) amt, company, companyname, yearmonth, '人力成本'
+			from t_snap_fi_standardcost
+			where isactingstd = 1 and budgetno like 'YY%' and account = '6401'
+			GROUP BY company, yearmonth, budgetno
+		) costfee
+		GROUP BY budgetno
+)cf on cf.budgetno = p.s_prjno
+left join (
+	SELECT
+		projectno,yearmonth,cumulativecost `2019年期初成本`
+	FROM t_snap_income_projectinfo
+	WHERE yearmonth = '201812'
+)qc on qc.projectno = p.s_prjno
+left join (
+	SELECT
+		projectno,yearmonth,cumulativecost `2016年期初成本`
+	FROM t_snap_income_projectinfo
+	WHERE yearmonth = '201512'
+)qc1 on qc1.projectno = p.s_prjno
+
+WHERE	
+	p.IS_DELETE = 0  AND p.S_PRJTYPE = 'YY'  
+-- AND p.S_PRJSTATUS <> '01' 
+-- and p.s_appstatus = 1
+and p.S_FINACLOSE = 1
+and p.s_prjno like 'yy-2018-0610-07'

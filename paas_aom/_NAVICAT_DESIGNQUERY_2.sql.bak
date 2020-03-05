@@ -1,0 +1,17 @@
+SELECT
+SUM(amt)
+from(
+			SELECT
+				budgetno, SUM(debit) amt, financialbody, b.S_COMPNAME, CONCAT(`year`,`month`) as yearmonth, '费用' type
+			FROM `t_snap_fi_voucher` a
+			left join mdl_aos_compcode b on a.financialbody = b.ID
+			where budgetno like 'yy%' and  a.zzno = '6401'
+			and month is not null and year is not null-- 未记账
+			GROUP BY financialbody, CONCAT(`year`,`month`), budgetno
+			union all
+			SELECT budgetno, SUM(amt) amt, company, companyname, yearmonth, '人力成本'
+			from t_snap_fi_standardcost
+			where isactingstd = 1 and budgetno like 'YY%' and account = '6401'
+			GROUP BY company, yearmonth, budgetno
+)x where left(x.yearmonth,4) = 2019
+and type = '费用'

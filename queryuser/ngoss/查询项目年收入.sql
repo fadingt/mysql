@@ -13,6 +13,10 @@ join (
 		SELECT
 			projectid pprojectid, projstatus,
 			getcustname(finalcustomer) custname, -- 客户名称
+			getunitname(deptid) prjunit,-- 项目所属部门
+			(SELECT brno from t_sys_mngunitinfo where unitid = deptid) prjbrno,
+			getusername(saleid) salename,
+			(SELECT linename from t_sys_mngunitinfo where unitid = (SELECT deptid from t_sys_mnguserinfo where userid = saleid)) salearea,
 			translatedict('IDFS000070', projstatus) projstatusname, -- 项目状态
 			translatedict('IDFS000092', businesstype) projecttypename,-- 项目类型 
 -- 			predictincome, budgetcontractamout,-- 预算收入 预算合同金额

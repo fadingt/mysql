@@ -1,0 +1,132 @@
+SELECT 
+	cont.CREATE_TIME `合同创建日期`,
+	S_CONCODE `合同编号`,
+	S_CONNAME `合同名称`,
+	ApproStatus.dict_name `审批状态`,
+	CONSTATUS.dict_name `合同状态`,
+case when cont.S_CONSTATUS = '03' then '是' when cont.S_CONSTATUS = '04' then '合同中止' else '否' end as `是否关闭`,
+	IFNULL(PROTCATE.dict_name,cate.dict_name) `合同类型`,
+	cust.S_CUSTNAME `甲方`, partyb.S_NAME `乙方`,
+	tec1.REAL_NAME `客户经理A`, tec2.REAL_NAME `客户经理B`,	tec1area.ORG_NAME `客户经理A所属区域`,
+	sale.REAL_NAME `销售代表`, salearea.ORG_NAME `销售区域`,
+	po.S_POCODE `所属项目商机编号`, po.S_PONAME `所属项目商机名称`,
+	DATE_FORMAT(cont.DT_BEGDATE,'%Y-%m-%d') `合同开始日期`,
+	DATE_FORMAT(cont.DT_ENDDATE,'%Y-%m-%d') `合同结束日期`,
+	DATE_FORMAT(cont.DT_PSIGNDATE,'%Y-%m-%d') `预计签约日期`,
+	DATE_FORMAT(cont.DT_ASIGNDATE,'%Y-%m-%d') `实际签约日期`,
+	DATE_FORMAT(DT_FILEDATE,'%Y-%m-%d') `归档日期`,
+	(
+	(SELECT COUNT(*)	from mdl_aos_saconstag where S_BILLSTA =0 and I_CONID = cont.id)
+		+
+	(SELECT COUNT(*) from mdl_aos_sastatem o 
+	left join mdl_aos_saorderst ost on o.id = ost.I_STATEID
+	 where !ost.IS_DELETE && !o.IS_DELETE && (o.S_APPSTATUS=1) && (ost.S_APPSTATUS=1) && (ost.S_ASSSTA = 1) and I_PROTNAME = cont.id)
+	) `待开票数`,
+	case 
+	when S_CONTYPE = '01' then cont.DL_CONAMT 
+	when S_CONTYPE = '02' and stage.type2 = '实际' then stage.amt
+	else 0
+	end`合同额`,
+	stage.amt, stage.type, stage.type2, stage.`结算单名称`, stage.`结算单编号`,
+	sdtl.*
+from mdl_aos_sacont cont
+join (
+			SELECT
+				ID I_CONID, '固定金额' type, null type2, null `结算单编号`, null `结算单名称` , null amt
+			from mdl_aos_sacont
+			where !IS_DELETE && S_APPSTATUS=1 and S_CONTYPE = '01'
+
+			union all
+			SELECT
+				I_PROTNAME, '框架协议' type, billCategory.dict_name type2, o.S_STACODE, o.S_STANAME, o.DL_STATEMAMT `结算单金额`
+			from mdl_aos_sastatem o
+			left join (SELECT *from plf_aos_dictionary where DICT_TYPE = 'billCategory') billCategory on billCategory.dict_code = o.S_STATYPE
+			where !o.IS_DELETE
+
+
+)stage on stage.I_CONID = cont.ID
+left join (
+		SELECT
+			cont.ID as I_CONID,dtl.`结算单编号2`,
+			SUM(case when left(dtl.DT_ACBILLD,4) < year(NOW()) then dtl.DL_ACBILLAMT else 0 end) `往年实开`,
+			SUM(case when left(dtl.DT_ACBILLD,4) = year(NOW()) and dtl.DT_ACBILLD != DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_ACBILLAMT else 0 end) `当年实开(不含当月)`,
+			SUM(case when dtl.DT_ACBILLD = DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_ACBILLAMT else 0 end) `当月实开`,
+			SUM(case when dtl.DT_PREBILLD = DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_BILLAMT else 0 end) `当月预开`,
+			SUM(case when dtl.DT_PREBILLD > DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_BILLAMT else 0 end) `后期预开`,
+
+			SUM(case when left(dtl.DT_ACAMTD,4) < year(NOW()) then dtl.DL_ACBACKAMT else 0 end) `往年实回`,
+			SUM(case when left(dtl.DT_ACAMTD,4) = year(NOW()) and dtl.DT_ACAMTD != DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_ACBACKAMT else 0 end) `当年实回(不含当月)`,
+			SUM(case when dtl.DT_ACAMTD = DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_ACBACKAMT else 0 end) `当月实回`,
+			SUM(case when dtl.DT_PREBACKD = DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_BACKAMT else 0 end) `当月预回`,
+			SUM(case when dtl.DT_PREBACKD > DATE_FORMAT(NOW(),'%Y%m') then dtl.DL_BACKAMT else 0 end) `后期预回`,
+
+			SUM(case when dtl.DT_PREBACKD - DATE_FORMAT(NOW(),'%Y%m') = 1 then dtl.DL_BACKAMT else 0 end) `预回T1`,
+			SUM(case when dtl.DT_PREBACKD - DATE_FORMAT(NOW(),'%Y%m') = 2 then dtl.DL_BACKAMT else 0 end) `预回T2`,
+			SUM(case when dtl.DT_PREBACKD - DATE_FORMAT(NOW(),'%Y%m') = 3 then dtl.DL_BACKAMT else 0 end) `预回T3`,
+			SUM(case when dtl.DT_PREBACKD - DATE_FORMAT(NOW(),'%Y%m') = 4 then dtl.DL_BACKAMT else 0 end) `预回T4`,
+			SUM(case when dtl.DT_PREBACKD - DATE_FORMAT(NOW(),'%Y%m') = 5 then dtl.DL_BACKAMT else 0 end) `预回T5`,
+			SUM(case when dtl.DT_PREBACKD - DATE_FORMAT(NOW(),'%Y%m') = 6 then dtl.DL_BACKAMT else 0 end) `预回T6`,
+
+			SUM(case when dtl.DT_PREBILLD - DATE_FORMAT(NOW(),'%Y%m') = 1 then dtl.DL_BILLAMT else 0 end) `预开T1`,
+			SUM(case when dtl.DT_PREBILLD - DATE_FORMAT(NOW(),'%Y%m') = 2 then dtl.DL_BILLAMT else 0 end) `预开T2`,
+			SUM(case when dtl.DT_PREBILLD - DATE_FORMAT(NOW(),'%Y%m') = 3 then dtl.DL_BILLAMT else 0 end) `预开T3`,
+			SUM(case when dtl.DT_PREBILLD - DATE_FORMAT(NOW(),'%Y%m') = 4 then dtl.DL_BILLAMT else 0 end) `预开T4`,
+			SUM(case when dtl.DT_PREBILLD - DATE_FORMAT(NOW(),'%Y%m') = 5 then dtl.DL_BILLAMT else 0 end) `预开T5`,
+			SUM(case when dtl.DT_PREBILLD - DATE_FORMAT(NOW(),'%Y%m') = 6 then dtl.DL_BILLAMT else 0 end) `预开T6`
+		from mdl_aos_sacont cont
+		join (
+			SELECT
+				I_CONID, '固定金额' type, null `结算单编号2`,
+				DL_ACBILLAMT, DATE_FORMAT(DT_ACBILLD,'%Y%m') DT_ACBILLD, -- 实开
+				DL_ACBACKAMT, DATE_FORMAT(DT_ACAMTD,'%Y%m') DT_ACAMTD,-- 实回
+				DL_BILLAMT, DATE_FORMAT(DT_PREBILLD,'%Y%m') DT_PREBILLD,-- 预开
+				DL_BACKAMT, DATE_FORMAT(DT_PREBACKD,'%Y%m') DT_PREBACKD-- 预回 
+			from mdl_aos_saconstag
+			where !IS_DELETE
+			union all
+			SELECT
+				I_PROTNAME, '框架协议', o.S_STACODE,
+				ost.DL_ACBILLAMT, DATE_FORMAT(ost.DT_ACBILLD,'%Y%m'),
+				ost.DL_ACBACKAMT, DATE_FORMAT(ost.DT_ACAMTD,'%Y%m'),
+				ost.DL_BILLAMT, DATE_FORMAT(ost.DT_PREBILLD,'%Y%m'),
+				ost.DL_BACKAMT, DATE_FORMAT(ost.DT_PREBACKD,'%Y%m')
+			from mdl_aos_sastatem o
+			left join mdl_aos_saorderst ost on o.id = ost.I_STATEID
+			where !ost.IS_DELETE && !o.IS_DELETE
+
+			union all
+			SELECT
+				contract_id, '固定金额' type, null `结算单编号2`,
+				bill_amt_sum, income_month, -- 实开
+				rece_amt_sum, income_month,-- 实回
+				null, null,-- 预开
+				null, null-- 预回 
+			from t_contract_month_income
+
+			union ALL
+			SELECT
+				contract_id, '框架协议' type, order_no `结算单编号2`,
+				bill_amt_sum, income_month, -- 实开
+				rece_amt_sum, income_month,-- 实回
+				null, null,-- 预开
+				null, null-- 预回 
+			from t_contract_order_month_income
+
+		)dtl on dtl.I_CONID = cont.ID
+		GROUP BY cont.ID, dtl.`结算单编号2`
+) sdtl on sdtl.I_CONID = stage.I_CONID and ((sdtl.`结算单编号2` = stage.`结算单编号`) or type = '固定金额')
+
+left join mdl_aos_sapoinf po on po.ID = cont.I_POID
+left join mdl_aos_sacustinf pocust on po.I_CUSTID = pocust.ID
+
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'contactCategory') cate on cate.dict_code = cont.S_CONCATE
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'contactType') CONSTATUS on CONSTATUS.dict_code = cont.s_CONSTATUS
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'ApproStatus') ApproStatus on ApproStatus.dict_code = cont.S_APPSTATUS
+left join (SELECT * from plf_aos_dictionary where DICT_TYPE = 'PROTCATE') PROTCATE on PROTCATE.dict_code = cont.S_PROTCATE
+left join mdl_aos_sacustinf cust on cust.ID = cont.S_PARTYA
+left join mdl_aos_hrorg partyb on partyb.ID = cont.S_PARTYB
+left join plf_aos_auth_user tec1 on tec1.ID = pocust.S_FIRTECH
+left join plf_aos_auth_user tec2 on tec2.ID = pocust.S_SECTECH
+left join plf_aos_auth_user sale on sale.ID = cont.OWNER_ID
+left join plf_aos_auth_org salearea on salearea.ORG_CODE = left(sale.ORG_CODE,13)
+left join plf_aos_auth_org tec1area on tec1area.ORG_CODE = left(tec1.ORG_CODE,13)

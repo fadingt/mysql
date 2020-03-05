@@ -1,6 +1,10 @@
 	SELECT
-		b.projectno, b.projectname,
+		b.projectno, b.projectname, d.salename, d.salearea,
 		CONCAT(b.yearmonth,'->',c.yearmonth) `yearmonth`,
+		case when b.company != c.company then CONCAT(b.company,'->',c.company) 
+		when b.company is null then CONCAT('->',c.company)
+		when c.company is null then CONCAT(b.company,'->')
+		else b.company end 'company',
 		case when b.projecttype != c.projecttype then CONCAT(b.projecttype,'->',c.projecttype)
 		when b.projecttype is null then CONCAT('->',c.projecttype)
 		when c.projecttype is null then CONCAT(b.projecttype,'->')
@@ -35,7 +39,7 @@
 		else b.budgetcontractamout end 'budgetcontractamout'
 	from (
 			SELECT 
-				projectid, projectno, projectname, yearmonth, 
+				projectid, projectno, projectname, yearmonth, getunitname(company) company,
 				translatedict('IDFS000091',projecttype) projecttype,
 				translatedict('IDFS000092',businesstype) businesstype,
 				translatedict('IDFS000070',prjstatus) prjstatus,
@@ -51,7 +55,7 @@
 	)b,
 	(
 			SELECT 
-				projectid, projectno, projectname, yearmonth, 
+				projectid, projectno, projectname, yearmonth, getunitname(company) company,
 				translatedict('IDFS000091',projecttype) projecttype,
 				translatedict('IDFS000092',businesstype) businesstype,
 				translatedict('IDFS000070',prjstatus) prjstatus,
@@ -64,10 +68,18 @@
 				FROM t_income_prjmonthincome_prjstatic
 			) b
 			on a.yearmonth = b.yearmonth1
-	)c
-where b.projectid = c.projectid
+	)c,
+(
+			SELECT
+				projectid, saleid, getusername(saleid) salename,
+				(SELECT getunitname(parentunitid) from t_sys_mngunitinfo where unitid = (SELECT deptid from t_sys_mnguserinfo WHERE userid = saleid)) salearea
+			from t_project_projectinfo
+			where SUBSTRING_INDEX(projectno,'-',1) = 'YY'
+)d
+where b.projectid = c.projectid and b.projectid = d.projectid
 and (
 	b.projecttype <> c.projecttype || b.businesstype <> c.businesstype || b.prjstatus <> c.prjstatus || b.incometype <> c.incometype || b.startdate <> c.startdate || b.enddate <> c.enddate || b.maintaincedate <> c.maintaincedate || b.budgetcontractamout <> c.budgetcontractamout
 )
 and SUBSTRING_INDEX(b.projectno,'-',1) = 'YY'
+-- {salename}{salearea}{projectno}
 ORDER BY b.projectid

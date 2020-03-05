@@ -4,16 +4,17 @@ select
 from (
 	select  
 			t.*,
+			getunitname(gatheringunitid) company,
 			getcustname(signedcustomer) signcust,
 			getcustname(finalcustomer) finalcust,
-			ifnull(budgetcontractamout,0) contractprice,
+-- 			ifnull(budgetcontractamout,0) contractprice,
 			(SELECT getunitname(parentunitid) from t_sys_mngunitinfo where unitid = (SELECT deptid from t_sys_mnguserinfo WHERE userid = saleid)) salearea,
 			translatedict ('IDFS000070', projstatus) projstatusname,
 			translatedict ('IDFS000091', projecttype) projecttypename,
 			translatedict ('IDFS000092', businesstype) businesstypename
 	from 
 		t_report_projectinfoinout t
-	where projectno like '%yy%' and projstatus != 6
+	where projectno like '%yy%'-- and projstatus != 6
 -- {projectno}
 -- {projectname}
 -- {nowyear}
@@ -29,6 +30,12 @@ join
 	SELECT 
 		projectid projectid1, predictstartdate predictstartdate1, predictenddate predictenddate1, maintenancedate maintenancedate1, 
 		getusername(b.tecpersonid) techperson,-- 客户经理/项目技术负责人
+		case 
+			(SELECT COUNT(projectid) from t_contract_projectrelation where projectid = a.projectid GROUP BY projectid)
+		when 0 then 0 -- 未签约
+		else 1 -- 已签约 IDFS000242
+		end signstatus,
+		ifnull(budgetcontractamout,0) contractprice,
 		SUBSTRING_INDEX(translateseconddict('JSLY',technologyarea,technologyarea2),'-', 1) techarea1, -- 解决方案
 		SUBSTRING_INDEX(translateseconddict('JSLY',technologyarea,technologyarea2),'-', -1) techarea2 -- 解决方案子类
 	from
@@ -36,7 +43,7 @@ join
 		`t_sale_custbasicdata` b
 	where 
 		a.finalcustomer = b.custid
-		and projectno like '%yy%' and projstatus != 6
+		and projectno like '%yy%'-- and projstatus != 6
 ) x1 on x.projectid = x1.projectid1
 
 LEFT JOIN

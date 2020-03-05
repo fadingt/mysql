@@ -1,8 +1,8 @@
 SELECT
 *,
 translatedict('IDFS000052', oppstep) oppstepname-- 商机阶段
-FROM 
-(select
+FROM (
+	select
 			oppid,
 			oppmainno,-- '主商机编号',
 			businessid bobusinessid,-- 客户商机ID',
@@ -15,21 +15,16 @@ FROM
 			predictstartdate, -- beiyong,
 			predicttotalprice,-- 预计项目总价
 			getusername(applyuser) beiyong,-- 申请人，项目负责人
-                        getunitname(deptid) beiyong2,-- 申请人，项目负责人
+			getunitname(deptid) beiyong2,-- 申请人，项目负责人
 			translatedict('IDFS000068', opertype) opertypename,-- '操作类型(1-新增，2-变更)',
-			infoex2,-- 项目经理
-			infoex3,-- 项目总监
 			translatedict('IDFS000078', status) bostatus, -- 项目商机状态(1-未生效，2-已生效，3-变更中',
 			getusername(saleid) salename,-- 销售代表',
+			(select SUBSTRING_INDEX(SUBSTRING_INDEX(remark4,'-',2),'-',-1) from t_sys_mngunitinfo where unitid = (select deptid from t_sys_mnguserinfo where userid = saleid)) salearea,
 			saleid,
-/*
-			getusername(infoex2) pmname,-- 项目经理
-			getusername(infoex3) pdname,-- 项目总监
-			getusername(saleid) salename,-- 销售代表',
-*/
 			prjapplyfigure,-- 项目阶段预算
 			oppapplyfigure-- 项目商机阶段预算
-from t_sale_businessopportunity) bo
+	from t_sale_businessopportunity
+) bo
 left join
 		(SELECT businessid cbbusinessid,-- 客户商机ID
 						businessno,-- 客户商机编号
@@ -60,6 +55,12 @@ LEFT JOIN
 						getusername(tecpersonid) tecperson,
 						getunitname((SELECT deptid from t_sys_mnguserinfo WHERE userid = tecpersonid) ) tecpersonunit
 		from t_sale_custbasicdata) cust on cust.ccustid = cb.cbcustid
+left join (
+		SELECT 
+			oppid preoppid, preincome1, preincome2, preincome3, preincome4, preincome5, preincome6,
+			preincome7, preincome8, preincome9, preincome10, preincome11, preincome12
+		FROM `query`.view_prebusinessincome
+) pre on pre.preoppid = bo.oppid
 LEFT JOIN
 		(select presaleid, presaleno, presalename, projbusinessid
 		from t_sale_presales
@@ -74,4 +75,5 @@ WHERE 1=1
 -- {cbyear}
 -- {salename}
 -- {tecperson}
-ORDER BY oppmainno
+and (SUBSTRING_INDEX(projectno,'-',1) != 'zl' or projectno is null)
+ORDER BY bo.oppmainno
